@@ -133,7 +133,9 @@ returns the fallback. In full Steam mode the app:
    (persisted in `STATE_DIR`) and waits for a newer build before trying again.
 
 To pin a version (and disable discovery), set `DBD_GAME_VERSION` to a full
-version string. This is required in quick mode.
+version string. This is required in quick mode. In full Steam mode you set no
+version variables at all; `DBD_CLIENT_VERSION` and `DBD_CLIENT_OS` are optional
+request headers with sensible defaults.
 
 ---
 

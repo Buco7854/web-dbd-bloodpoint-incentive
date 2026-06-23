@@ -1,7 +1,7 @@
 import type { AppConfig } from '../config.js';
 import type { Logger } from '../logger.js';
 import { buildUserAgent } from '../version/category.js';
-import { AuthError } from './errors.js';
+import { AuthError, FatalAuthError } from './errors.js';
 import { type Anchor, parseLiveKeys, selectAnchor } from './steam/loginAnchor.js';
 import type { SteamClient } from './steam/steamClient.js';
 import type { SteamVersionDiscovery } from './steam/versionDiscovery.js';
@@ -85,7 +85,16 @@ export class SteamAuthProvider implements AuthProvider {
     });
 
     if (!response.ok) {
-      throw new AuthError(`BHVR Steam login failed (${response.status}): ${await safeText(response)}`);
+      const body = await safeText(response);
+      if (/InvalidToken|cantGetSteamUserInfo/i.test(body)) {
+        throw new FatalAuthError(
+          'BHVR rejected the Steam web ticket (Invalid Token). Full Steam mode cannot ' +
+            'produce the identity-bound web ticket BHVR requires (node-steam-user has no ' +
+            'GetAuthTicketForWebApi). Switch to quick mode by setting DBD_API_KEY; you may ' +
+            'keep the Steam credentials for automatic version discovery.',
+        );
+      }
+      throw new AuthError(`BHVR Steam login failed (${response.status}): ${body}`);
     }
     const data = (await response.json()) as { token?: string };
     if (!data.token) throw new AuthError('BHVR Steam login returned no token');

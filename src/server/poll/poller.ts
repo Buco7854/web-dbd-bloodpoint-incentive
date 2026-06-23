@@ -92,8 +92,8 @@ export class Poller {
 
     const version = this.resolver.getActive();
     if (!version) {
-      this.cache.setStatus('error', 'client version/category could not be resolved');
-      this.log.error('no active client version; pausing and retrying discovery');
+      this.cache.setStatus('degraded', 'client version not resolved yet; retrying discovery');
+      this.log.warn('no active client version yet; retrying discovery');
       await delay(HARD_PAUSE_MS, this.signal);
       await this.resolver.refreshFromDiscovery();
       return;

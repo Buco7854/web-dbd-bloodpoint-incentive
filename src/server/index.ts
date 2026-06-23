@@ -29,7 +29,7 @@ async function main(): Promise<void> {
 
   const regionIds = config.forceRegion ? [config.forceRegion] : [...ALL_REGION_IDS];
   const store = new StateStore(config.stateDir, log.child({ component: 'store' }));
-  const { provider, resolver } = createAuth(config, store, log);
+  const { provider, resolver, dispose } = createAuth(config, store, log);
 
   const cache = new IncentiveCache(
     {
@@ -42,19 +42,19 @@ async function main(): Promise<void> {
     regionIds,
   );
 
+  let canPoll = true;
   try {
     await resolver.init();
   } catch (err) {
-    if (err instanceof VersionFormatError) {
-      log.fatal({ err }, 'invalid DBD_GAME_VERSION');
-      process.exit(1);
+    if (err instanceof VersionFormatError || isFatalError(err)) {
+      const message = err instanceof Error ? err.message : String(err);
+      log.fatal({ err }, 'unrecoverable startup error; halting polling and reporting unhealthy');
+      cache.setStatus('error', message);
+      await dispose();
+      canPoll = false;
+    } else {
+      log.error({ err }, 'version resolution failed at startup; poller will keep retrying');
     }
-    if (isFatalError(err)) {
-      log.fatal({ err }, 'unrecoverable error during startup; exiting');
-      await provider.shutdown();
-      process.exit(1);
-    }
-    log.error({ err }, 'version resolution failed at startup; poller will keep retrying');
   }
   const active = resolver.getActive();
   if (active) cache.setVersionInfo(active.version, active.category);
@@ -83,7 +83,7 @@ async function main(): Promise<void> {
     try {
       await appRef?.close();
       await pollerRef?.stop();
-      await provider.shutdown();
+      await dispose();
     } catch (err) {
       log.error({ err }, 'error during shutdown');
     }
@@ -98,7 +98,10 @@ async function main(): Promise<void> {
       regionIds,
       pollIntervalMs: config.pollIntervalSeconds * 1000,
       versionRefreshMs: config.versionRefreshHours * 3_600_000,
-      onFatal: () => void shutdown('fatal-error', 1),
+      // On an unrecoverable error, stop hitting Steam/BHVR and log off, but keep
+      // the process serving so /healthz reports unhealthy. Exiting would restart
+      // and re-login to Steam repeatedly, which risks the account.
+      onFatal: () => void dispose(),
     },
     log.child({ component: 'poller' }),
   );
@@ -108,7 +111,7 @@ async function main(): Promise<void> {
   const app = await buildServer({ config, cache, publicDir, log: log.child({ component: 'http' }) });
   appRef = app;
 
-  poller.start();
+  if (canPoll) poller.start();
   await app.listen({ host: '0.0.0.0', port: config.port });
   log.info({ port: config.port }, 'http server listening');
 

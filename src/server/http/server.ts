@@ -22,14 +22,18 @@ export async function buildServer(deps: ServerDeps): Promise<FastifyInstance> {
   registerAccessAuth(app, config, log);
 
   app.get('/healthz', async (_req, reply) => {
+    const healthy = cache.pollerStatus !== 'error';
     const payload: HealthPayload = {
-      status: 'ok',
+      status: healthy ? 'ok' : 'unhealthy',
       uptimeSeconds: Math.round(process.uptime()),
       cacheAgeSeconds: cache.cacheAgeSeconds(),
       pollerStatus: cache.pollerStatus,
       regionsCached: cache.regionCount,
     };
-    return reply.header('cache-control', 'no-store').send(payload);
+    return reply
+      .code(healthy ? 200 : 503)
+      .header('cache-control', 'no-store')
+      .send(payload);
   });
 
   app.get('/api/incentives', async (_req, reply) => {

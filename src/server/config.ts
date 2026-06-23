@@ -110,15 +110,14 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
 
   const gameVersion = readString(env, 'DBD_GAME_VERSION') ?? 'auto';
 
-  // Version resolution needs EITHER an explicit version OR Steam depot discovery.
-  // A present DBD_API_KEY means quick mode, which has no depot discovery.
-  const canDiscoverVersion = authProvider === 'steam' && hasSteamCredentials && !dbdApiKey;
+  // Version discovery needs Steam credentials (it reads the game's depot). It
+  // works even alongside DBD_API_KEY, so a key user can still auto-track versions.
+  const canDiscoverVersion = authProvider === 'steam' && hasSteamCredentials;
   if (gameVersion === 'auto' && !canDiscoverVersion) {
     throw new ConfigError(
-      'DBD_GAME_VERSION is required when Steam depot discovery is unavailable ' +
-        '(quick mode with only DBD_API_KEY, or no Steam credentials). ' +
-        'Set DBD_GAME_VERSION to a full client version string, ' +
-        'e.g. DBD_Sushi_REL_Steam_Shipping_9_3420587.',
+      'DBD_GAME_VERSION is required when no Steam credentials are configured ' +
+        '(depot version discovery is unavailable). Set DBD_GAME_VERSION to a full ' +
+        'client version string, e.g. DBD_Sushi_REL_Steam_Shipping_9_3420587.',
     );
   }
 

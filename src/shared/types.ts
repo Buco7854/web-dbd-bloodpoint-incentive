@@ -68,7 +68,7 @@ export interface IncentivesPayload {
 
 /** Health payload served by `GET /healthz` (always unauthenticated). */
 export interface HealthPayload {
-  status: 'ok';
+  status: 'ok' | 'unhealthy';
   uptimeSeconds: number;
   cacheAgeSeconds: number | null;
   pollerStatus: PollerStatus;

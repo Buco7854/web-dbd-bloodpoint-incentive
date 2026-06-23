@@ -109,11 +109,20 @@ Pluggable `AuthProvider` interface with auto-refresh on `401`:
 > `KRAKEN_DBD` identity from Node alone. The closest primitive
 > (`createAuthSessionTicket`) is used; quick mode is the validated path meanwhile.
 
-On an **unrecoverable** error (bad Steam credentials, a rejected non-refreshable
-quick-mode key, or the Epic stub) the process logs a fatal error and exits with a
-non-zero code, rather than sitting idle while still reporting healthy. With a
-restart policy the container keeps restarting until the configuration is fixed.
-Transient errors (network, rate limits, 5xx, fallbacks) just back off and retry.
+On an **unrecoverable** error (bad Steam credentials, a not-entitled Steam
+account, the Steam web-ticket limitation below, a rejected quick-mode key, or the
+Epic stub) the app stops polling, logs off Steam, and `/healthz` returns **503**
+so the container is marked **unhealthy** instead of sitting idle while reporting
+healthy. It deliberately does not exit: restarting would re-login to Steam on
+every restart and risk the account. Transient errors (network, rate limits, 5xx,
+fallbacks) just back off and retry.
+
+> **Full Steam mode caveat:** obtaining the DBD api-key requires an
+> identity-bound Steam *web* auth ticket (`GetAuthTicketForWebApi`), which
+> `node-steam-user` does not expose. So Steam login + version discovery work, but
+> the BHVR api-key exchange currently fails with `Invalid Token`. Use **quick
+> mode** (`DBD_API_KEY`) for a working setup; you can keep the Steam credentials
+> for automatic version discovery.
 
 ### 2. Site access (so it can sit behind Authentik)
 

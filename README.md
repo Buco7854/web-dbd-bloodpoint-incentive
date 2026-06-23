@@ -104,25 +104,20 @@ Pluggable `AuthProvider` interface with auto-refresh on `401`:
 - **Epic** (`AUTH_PROVIDER=epic`): a wired `NotImplemented` stub, designed so
   adding it later is an isolated change.
 
-> Note on full Steam mode: `steam-user` v5 does not expose
-> `GetAuthTicketForWebApi(identity)`, so the web ticket cannot be bound to the
-> `KRAKEN_DBD` identity from Node alone. The closest primitive
-> (`createAuthSessionTicket`) is used; quick mode is the validated path meanwhile.
+> Full Steam mode needs an identity-bound Steam *web* auth ticket
+> (`GetAuthTicketForWebApi("KRAKEN_DBD")`), which `steam-user` does not expose.
+> It is built at the Steam protocol level instead: the same auth-session ticket
+> bytes with the web-api ticket type, registered via `ClientAuthList` with the
+> identity in `CMsgAuthTicket.server_secret`, mirroring SteamKit2. Quick mode
+> (`DBD_API_KEY`) remains available and can be combined with Steam credentials so
+> the version is still discovered automatically.
 
 On an **unrecoverable** error (bad Steam credentials, a not-entitled Steam
-account, the Steam web-ticket limitation below, a rejected quick-mode key, or the
-Epic stub) the app stops polling, logs off Steam, and `/healthz` returns **503**
-so the container is marked **unhealthy** instead of sitting idle while reporting
-healthy. It deliberately does not exit: restarting would re-login to Steam on
-every restart and risk the account. Transient errors (network, rate limits, 5xx,
-fallbacks) just back off and retry.
-
-> **Full Steam mode caveat:** obtaining the DBD api-key requires an
-> identity-bound Steam *web* auth ticket (`GetAuthTicketForWebApi`), which
-> `node-steam-user` does not expose. So Steam login + version discovery work, but
-> the BHVR api-key exchange currently fails with `Invalid Token`. Use **quick
-> mode** (`DBD_API_KEY`) for a working setup; you can keep the Steam credentials
-> for automatic version discovery.
+account, a rejected quick-mode key, or the Epic stub) the app stops polling, logs
+off Steam, and `/healthz` returns **503** so the container is marked **unhealthy**
+instead of sitting idle while reporting healthy. It deliberately does not exit:
+restarting would re-login to Steam on every restart and risk the account.
+Transient errors (network, rate limits, 5xx, fallbacks) just back off and retry.
 
 ### 2. Site access (so it can sit behind Authentik)
 

@@ -1,5 +1,6 @@
 import type { Logger } from '../../logger.js';
 import { FatalAuthError } from '../errors.js';
+import { buildWebApiTicket } from './webApiTicket.js';
 
 const DBD_APP_ID = 381210;
 const DBD_CONTENT_DEPOT = 381211; // "Dead by Daylight Content" (Windows)
@@ -32,9 +33,10 @@ export interface SteamClientOptions {
  * randomized 4-6h timer (log off, then reconnect lazily on next use), reusing a
  * captured refresh token so reconnects do not re-trigger Steam Guard.
  *
- * Note: steam-user v5 has no GetAuthTicketForWebApi(identity), so the ticket
- * cannot be bound to the "KRAKEN_DBD" identity here. createAuthSessionTicket is
- * used as the closest primitive; quick mode (DBD_API_KEY) is the supported path.
+ * steam-user v5 has no GetAuthTicketForWebApi, so the identity-bound web ticket
+ * BHVR requires is built at the protocol level in getWebApiTicketHex (mirroring
+ * SteamKit2): the same auth-session ticket bytes, but with the web-api ticket
+ * type, registered via ClientAuthList with the identity in server_secret.
  */
 export class SteamClient {
   private user: any = null;
@@ -146,16 +148,79 @@ export class SteamClient {
     });
   }
 
-  /** Hex-encoded auth session ticket for app 381210. */
-  async getWebTicketHex(): Promise<string> {
+  /**
+   * Hex-encoded Steam Web-API auth ticket bound to `identity` for app 381210 (the
+   * headless equivalent of GetAuthTicketForWebApi). Builds the auth-session ticket
+   * bytes with the web-api ticket type, registers it via ClientAuthList with the
+   * identity in CMsgAuthTicket.server_secret ("str:<identity>\0"), and pads the
+   * returned blob to the web-api ticket size, all mirroring SteamKit2.
+   */
+  async getWebApiTicketHex(identity: string): Promise<string> {
     this.busy = true;
     try {
       await this.connect();
-      const { sessionTicket } = await this.user.createAuthSessionTicket(DBD_APP_ID);
-      return Buffer.from(sessionTicket).toString('hex');
+      const user = this.user;
+
+      const { appOwnershipTicket } = await user.getAppOwnershipTicket(DBD_APP_ID);
+      const ownership: Buffer = Buffer.isBuffer(appOwnershipTicket)
+        ? appOwnershipTicket
+        : Buffer.from(appOwnershipTicket);
+      const gcToken: Buffer = await this.takeGcToken();
+      user._connectionCount = (Number(user._connectionCount) || 0) + 1;
+
+      const ticket = buildWebApiTicket({
+        gcToken,
+        ownership,
+        publicIp: user.publicIP,
+        connectedMs: this.connectedMs(),
+        connectionCount: user._connectionCount,
+        identity,
+      });
+
+      // Register the ticket with the identity in server_secret, then return the
+      // padded blob for the BHVR login body.
+      const entry = {
+        estate: 0,
+        steamid: 0,
+        gameid: DBD_APP_ID,
+        h_steam_pipe: user._hSteamPipe,
+        ticket_crc: ticket.ticketCrc,
+        ticket: ticket.authTicket,
+        server_secret: ticket.serverSecret,
+      };
+      user._activeAuthTickets = (user._activeAuthTickets || []).filter(
+        (t: { ticket_crc: number }) => t.ticket_crc !== ticket.ticketCrc,
+      );
+      user._activeAuthTickets.push(entry);
+      await user._sendAuthList();
+
+      return ticket.full.toString('hex');
     } finally {
       this.busy = false;
     }
+  }
+
+  private connectedMs(): number {
+    const connectTime = this.user._connectTime;
+    return typeof connectTime === 'number' ? (Date.now() - connectTime) >>> 0 : 0;
+  }
+
+  private async takeGcToken(): Promise<Buffer> {
+    const user = this.user;
+    if (user._gcTokens?.length > 0) return user._gcTokens.splice(0, 1)[0];
+    await new Promise<void>((resolve, reject) => {
+      const timer = setTimeout(() => {
+        user.removeListener('_gcTokens', onToken);
+        reject(new Error('timed out waiting for a Steam GC token'));
+      }, 10_000);
+      const onToken = (): void => {
+        clearTimeout(timer);
+        resolve();
+      };
+      user.once('_gcTokens', onToken);
+    });
+    if (!user._gcTokens?.length) throw new Error('no Steam GC token available');
+    return user._gcTokens.splice(0, 1)[0];
   }
 
   /** Reads the latest public-branch client version string from the content depot. */

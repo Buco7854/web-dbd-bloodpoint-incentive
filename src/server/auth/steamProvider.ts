@@ -56,7 +56,7 @@ export class SteamAuthProvider implements AuthProvider {
 
   private async doLogin(): Promise<string> {
     const { steamClient, discovery, config, log } = this.deps;
-    const ticketHex = await steamClient.getWebTicketHex();
+    const ticketHex = await steamClient.getWebApiTicketHex('KRAKEN_DBD');
     const userAgent = buildUserAgent(await discovery.resolveLatestVersion(), config.clientOs);
     const anchor = await this.resolveAnchor(userAgent);
     log.info({ pattern: anchor.pattern, contentVersionId: anchor.contentVersionId }, 'selected BHVR login anchor');

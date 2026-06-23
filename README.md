@@ -167,14 +167,9 @@ request headers with sensible defaults.
 
 Do not wrap values in quotes in env files; some setups (for example
 `docker run --env-file`) pass the quotes through literally and corrupt the value.
-If a secret contains `$` and you use docker compose `env_file`, it may be
-interpolated, so escape it as `$$`. The most robust option is the `<NAME>_FILE`
-convention: any variable also accepts a `<NAME>_FILE` pointing at a file whose
-contents are used raw, bypassing all shell/Compose quoting and interpolation:
-
-```bash
-STEAM_PASSWORD_FILE=/run/secrets/steam_password   # file contains just the password
-```
+Surrounding quotes are stripped defensively, but the cleaner habit is to leave
+them off. If a secret contains `$` and you use docker compose `env_file`, it may
+be interpolated, so escape it as `$$`.
 
 ---
 

@@ -1,4 +1,3 @@
-import { readFileSync } from 'node:fs';
 import { isKnownRegion } from '../shared/regions.js';
 
 export class ConfigError extends Error {
@@ -60,24 +59,9 @@ function unquote(value: string): string {
   return value;
 }
 
-/**
- * Reads a config value. `<NAME>_FILE` takes precedence and is read raw from disk,
- * which sidesteps all shell/Compose quoting and `$` interpolation, the safest way
- * to inject secrets with special characters. Otherwise the env value is used.
- * Surrounding quotes are stripped and the value is trimmed.
- */
+/** Reads a config value, trimmed and with surrounding quotes stripped. */
 function readString(env: NodeJS.ProcessEnv, name: string): string | null {
-  const filePath = env[`${name}_FILE`]?.trim();
-  let raw: string | null;
-  if (filePath) {
-    try {
-      raw = readFileSync(filePath, 'utf8');
-    } catch (err) {
-      throw new ConfigError(`Could not read ${name}_FILE at "${filePath}": ${(err as Error).message}`);
-    }
-  } else {
-    raw = env[name] ?? null;
-  }
+  const raw = env[name];
   if (raw == null) return null;
   const value = unquote(raw.trim());
   return value.length > 0 ? value : null;

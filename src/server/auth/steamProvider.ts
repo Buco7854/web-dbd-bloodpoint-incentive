@@ -59,6 +59,7 @@ export class SteamAuthProvider implements AuthProvider {
     const ticketHex = await steamClient.getWebTicketHex();
     const userAgent = buildUserAgent(await discovery.resolveLatestVersion(), config.clientOs);
     const anchor = await this.resolveAnchor(userAgent);
+    log.info({ pattern: anchor.pattern, contentVersionId: anchor.contentVersionId }, 'selected BHVR login anchor');
 
     const response = await fetch(`https://${config.bhvrHost}/api/v1/auth/provider/steam/login`, {
       method: 'POST',
@@ -112,7 +113,7 @@ export class SteamAuthProvider implements AuthProvider {
     // The map may be under `availableVersions` or be the whole response body.
     const availableVersions = (versionsBody.availableVersions ?? versionsBody) as Record<
       string,
-      string | string[]
+      unknown
     >;
 
     const keysRes = await fetch('https://keyapi.deadbyqueue.com/keys', {

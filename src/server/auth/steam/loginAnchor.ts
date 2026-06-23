@@ -1,18 +1,22 @@
 /**
- * Selects the version "anchor" used to build the headers for the BHVR Steam
- * login call: the highest semver version pattern present in BOTH the server's
- * availableVersions and the live-keys map, plus that pattern's content id and
- * secret key. Pure so it can be unit tested without any network.
+ * Selects the version "anchor" for the BHVR Steam login headers: the highest
+ * semver present in BOTH the server's availableVersions and the live-keys map,
+ * plus that semver's content id (its highest build) and secret key. Pure so it
+ * can be unit tested without any network.
+ *
+ * availableVersions is keyed by `${semver}_${buildId}live` (e.g.
+ * "10.0.1_3460394live"); liveKeys is keyed by plain semver (e.g. "10.0.1").
  */
 export interface AnchorInput {
-  /** pattern -> contentVersionId (or a list of build ids to pick the highest of). */
-  availableVersions: Record<string, string | string[]>;
-  /** pattern -> secret key (already filtered to *_live and stripped of the suffix). */
+  availableVersions: Record<string, unknown>;
+  /** semver -> secret key (already filtered to *_live and stripped of the suffix). */
   liveKeys: Record<string, string>;
 }
 
 export interface Anchor {
+  /** Plain semver, e.g. "10.0.1". */
   pattern: string;
+  /** The availableVersions key with the highest build for the pattern. */
   contentVersionId: string;
   secretKey: string;
 }
@@ -28,26 +32,41 @@ export function compareSemver(a: string, b: string): number {
   return 0;
 }
 
-function highestContentId(raw: string | string[]): string {
-  if (!Array.isArray(raw)) return raw;
-  if (raw.length === 0) return '';
-  return [...raw].sort((a, b) => {
-    const na = Number(a);
-    const nb = Number(b);
-    if (Number.isFinite(na) && Number.isFinite(nb)) return na - nb;
-    return a < b ? -1 : a > b ? 1 : 0;
-  })[raw.length - 1] as string;
+interface ParsedVersion {
+  semver: string;
+  buildId: number;
+  key: string;
+}
+
+/** Parse "10.0.1_3460394live" -> { semver: "10.0.1", buildId: 3460394, key }. */
+function parseAvailableKey(key: string): ParsedVersion | null {
+  const sep = key.indexOf('_');
+  if (sep <= 0) return null;
+  const semver = key.slice(0, sep);
+  const buildId = Number.parseInt(key.slice(sep + 1), 10);
+  return { semver, buildId: Number.isFinite(buildId) ? buildId : 0, key };
 }
 
 export function selectAnchor(input: AnchorInput): Anchor {
-  const common = Object.keys(input.liveKeys).filter((p) => p in input.availableVersions);
+  // Highest-build entry per semver.
+  const bySemver = new Map<string, ParsedVersion>();
+  for (const key of Object.keys(input.availableVersions)) {
+    const parsed = parseAvailableKey(key);
+    if (!parsed) continue;
+    const existing = bySemver.get(parsed.semver);
+    if (!existing || parsed.buildId > existing.buildId) bySemver.set(parsed.semver, parsed);
+  }
+
+  const common = [...bySemver.keys()].filter((s) => s in input.liveKeys);
   if (common.length === 0) {
     throw new Error('no version pattern is present in both availableVersions and the live-keys map');
   }
+
   const pattern = common.sort((a, b) => compareSemver(b, a))[0] as string;
+  const top = bySemver.get(pattern) as ParsedVersion;
   return {
     pattern,
-    contentVersionId: highestContentId(input.availableVersions[pattern] ?? ''),
+    contentVersionId: top.key,
     secretKey: input.liveKeys[pattern] as string,
   };
 }

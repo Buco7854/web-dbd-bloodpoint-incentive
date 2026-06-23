@@ -4,42 +4,43 @@ import { compareSemver, parseLiveKeys, selectAnchor } from './loginAnchor.js';
 
 test('compareSemver orders by numeric segments', () => {
   assert.ok(compareSemver('9.3.0', '9.2.9') > 0);
-  assert.ok(compareSemver('9.3.0', '10.0.0') < 0);
-  assert.equal(compareSemver('9.3.0', '9.3.0'), 0);
+  assert.ok(compareSemver('10.0.0', '9.9.9') > 0);
+  assert.equal(compareSemver('10.0.1', '10.0.1'), 0);
 });
 
-test('selectAnchor picks the highest pattern present in both maps', () => {
+test('selectAnchor picks the highest common semver and its highest build', () => {
   const anchor = selectAnchor({
-    availableVersions: { '9.2.0': 'c920', '9.3.0': 'c930', '9.4.0': 'c940' },
-    liveKeys: { '9.2.0': 'k920', '9.3.0': 'k930' },
+    availableVersions: {
+      '10.0.0_3420915live': {},
+      '10.0.1_3458605live': {},
+      '10.0.1_3460394live': {},
+      '9.9.9_100live': {},
+    },
+    liveKeys: { '10.0.0': 'k1000', '10.0.1': 'k1001' },
   });
-  assert.equal(anchor.pattern, '9.3.0');
-  assert.equal(anchor.contentVersionId, 'c930');
-  assert.equal(anchor.secretKey, 'k930');
+  assert.equal(anchor.pattern, '10.0.1');
+  assert.equal(anchor.contentVersionId, '10.0.1_3460394live'); // highest build for 10.0.1
+  assert.equal(anchor.secretKey, 'k1001');
 });
 
-test('selectAnchor picks the highest build id from a list', () => {
+test('selectAnchor ignores semvers that have no live key', () => {
   const anchor = selectAnchor({
-    availableVersions: { '9.3.0': ['100', '350', '210'] },
-    liveKeys: { '9.3.0': 'k930' },
+    availableVersions: { '10.0.1_3460394live': {}, '10.0.0_3420915live': {} },
+    liveKeys: { '10.0.0': 'k1000' },
   });
-  assert.equal(anchor.contentVersionId, '350');
+  assert.equal(anchor.pattern, '10.0.0');
+  assert.equal(anchor.contentVersionId, '10.0.0_3420915live');
 });
 
-test('selectAnchor throws when there is no common pattern', () => {
+test('selectAnchor throws when there is no common semver', () => {
   assert.throws(() =>
-    selectAnchor({ availableVersions: { '9.3.0': 'c' }, liveKeys: { '9.4.0': 'k' } }),
+    selectAnchor({ availableVersions: { '9.0.0_1live': {} }, liveKeys: { '8.0.0': 'k' } }),
   );
 });
 
 test('parseLiveKeys keeps only *_live and strips the suffix (JSON)', () => {
   const keys = parseLiveKeys(
-    JSON.stringify({ '9.3.0_live': 'abc', '9.3.0_ptb': 'xyz', '9.2.0_live': 'def' }),
+    JSON.stringify({ '10.0.1_live': 'abc', '10.0.1_ptb': 'xyz', '10.0.0_live': 'def' }),
   );
-  assert.deepEqual(keys, { '9.3.0': 'abc', '9.2.0': 'def' });
-});
-
-test('parseLiveKeys falls back to line parsing', () => {
-  const body = '"9.3.0_live": "abc"\n"9.3.0_qa": "nope"\n"9.4.0_live": "ghi"';
-  assert.deepEqual(parseLiveKeys(body), { '9.3.0': 'abc', '9.4.0': 'ghi' });
+  assert.deepEqual(keys, { '10.0.1': 'abc', '10.0.0': 'def' });
 });

@@ -94,7 +94,7 @@ export class SteamAuthProvider implements AuthProvider {
   }
 
   private async resolveAnchor(userAgent: string): Promise<Anchor> {
-    const { config } = this.deps;
+    const { config, log } = this.deps;
     const base: Record<string, string> = {
       Accept: '*/*',
       'Accept-Encoding': 'deflate, gzip',
@@ -108,19 +108,35 @@ export class SteamAuthProvider implements AuthProvider {
       headers: base,
     });
     if (!versionsRes.ok) throw new AuthError(`contentVersion/version failed (${versionsRes.status})`);
-    const versions = (await versionsRes.json()) as {
-      availableVersions?: Record<string, string | string[]>;
-    };
+    const versionsBody = (await versionsRes.json()) as Record<string, unknown>;
+    // The map may be under `availableVersions` or be the whole response body.
+    const availableVersions = (versionsBody.availableVersions ?? versionsBody) as Record<
+      string,
+      string | string[]
+    >;
 
     const keysRes = await fetch('https://keyapi.deadbyqueue.com/keys', {
       headers: { Accept: '*/*', 'User-Agent': userAgent },
     });
     if (!keysRes.ok) throw new AuthError(`keyapi/keys failed (${keysRes.status})`);
+    const liveKeys = parseLiveKeys(await keysRes.text());
 
-    return selectAnchor({
-      availableVersions: versions.availableVersions ?? {},
-      liveKeys: parseLiveKeys(await keysRes.text()),
-    });
+    try {
+      return selectAnchor({ availableVersions, liveKeys });
+    } catch (err) {
+      // Print the shapes (keys only, never the secret values) so a mismatch
+      // between the two endpoints can be diagnosed and the parser corrected.
+      log.warn(
+        {
+          contentVersionTopKeys: Object.keys(versionsBody).slice(0, 25),
+          availableVersionsType: Array.isArray(availableVersions) ? 'array' : typeof availableVersions,
+          availableVersionsKeys: Object.keys(availableVersions).slice(0, 25),
+          liveKeyPatterns: Object.keys(liveKeys).slice(0, 25),
+        },
+        'could not select a BHVR login anchor; dumping input keys for diagnosis',
+      );
+      throw err;
+    }
   }
 
   async shutdown(): Promise<void> {

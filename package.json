@@ -1,9 +1,9 @@
 {
-  "name": "dbd-bloodpoint-incentive",
+  "name": "bloodpoint-incentives",
   "version": "1.0.0",
   "private": true,
   "type": "module",
-  "description": "Live Dead by Daylight Bloodpoint incentive viewer (unofficial fan project).",
+  "description": "Live Dead by Daylight Bloodpoint incentives viewer (unofficial fan project).",
   "license": "MIT",
   "engines": {
     "node": ">=20"

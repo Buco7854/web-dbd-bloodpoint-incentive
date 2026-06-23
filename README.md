@@ -1,6 +1,6 @@
-# Bloodpoint Incentive
+# Bloodpoint Incentives
 
-A small, self-contained web app that shows the **live Bloodpoint incentive** for
+A small, self-contained web app that shows the **live Bloodpoint incentives** for
 _Dead by Daylight_ matchmaking servers: the bonus percentage awarded for playing
 the under-populated role, per region, with a dark, DBD-themed, fully responsive UI.
 

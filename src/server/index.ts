@@ -24,7 +24,7 @@ async function main(): Promise<void> {
       forceRegion: config.forceRegion,
       pollIntervalSeconds: config.pollIntervalSeconds,
     },
-    'starting dbd-bloodpoint-incentive',
+    'starting bloodpoint-incentives',
   );
 
   const regionIds = config.forceRegion ? [config.forceRegion] : [...ALL_REGION_IDS];

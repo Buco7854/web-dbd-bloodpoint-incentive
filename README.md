@@ -45,7 +45,7 @@ string. The app polls and serves immediately.
 docker run --rm -p 3000:3000 \
   -e DBD_API_KEY="<your-dbd-session-key>" \
   -e DBD_GAME_VERSION="DBD_Sushi_REL_Steam_Shipping_9_3420587" \
-  ghcr.io/example/dbd-bloodpoint-incentive   # or build locally, see below
+  ghcr.io/buco7854/web-dbd-bloodpoint-incentive:latest   # published by CI, or build locally
 ```
 
 Then open <http://localhost:3000>. The session key expires; for unattended

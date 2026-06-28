@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="32" height="32">
+  <defs>
+    <radialGradient id="bg" cx="50%" cy="36%" r="78%">
+      <stop offset="0%" stop-color="#2a0a0e" />
+      <stop offset="100%" stop-color="#0b0a0e" />
+    </radialGradient>
+    <radialGradient id="core" cx="42%" cy="30%" r="78%">
+      <stop offset="0%" stop-color="#ff9a9a" />
+      <stop offset="36%" stop-color="#ec2230" />
+      <stop offset="76%" stop-color="#a30f17" />
+      <stop offset="100%" stop-color="#560a0e" />
+    </radialGradient>
+    <linearGradient id="rim" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#ff7a7a" />
+      <stop offset="100%" stop-color="#360608" />
+    </linearGradient>
+  </defs>
+  <rect width="32" height="32" rx="7.5" fill="url(#bg)" />
+  <g transform="translate(16 16) scale(0.72) translate(-16 -15.55)">
+    <path d="M16 2.2C18.9 7 25.5 13.6 25.5 19.4A9.5 9.5 0 1 1 6.5 19.4C6.5 13.6 13.1 7 16 2.2Z" fill="url(#rim)" />
+    <path d="M16 4.2C18.5 8.4 23.7 14.1 23.7 19.4A7.7 7.7 0 1 1 8.3 19.4C8.3 14.1 13.5 8.4 16 4.2Z" fill="url(#core)" />
+    <ellipse cx="12.4" cy="14" rx="1.9" ry="3" fill="#ffffff" opacity="0.4" transform="rotate(-26 12.4 14)" />
+  </g>
+</svg>

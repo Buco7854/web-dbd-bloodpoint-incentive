@@ -1,0 +1,52 @@
+x-agent: &agent
+  image: ${AGENT_IMAGE:-ghcr.io/buco7854/bloodpoint-incentives/agent:latest}
+  restart: unless-stopped
+  depends_on:
+    hub:
+      condition: service_healthy
+
+x-agent-env: &agent-env
+  HUB_URL: ${HUB_URL:-http://hub:3000}
+  LOG_LEVEL: ${LOG_LEVEL:-info}
+  TZ: ${TZ:-UTC}
+
+services:
+  hub:
+    image: ${HUB_IMAGE:-ghcr.io/buco7854/bloodpoint-incentives/hub:latest}
+    container_name: bloodpoint-hub
+    restart: unless-stopped
+    ports:
+      - '${PORT:-3000}:${PORT:-3000}'
+    env_file: .env
+    volumes:
+      - hub-data:/app/data
+      # - ./hub.yaml:/config/hub.yaml:ro
+
+  agent-1:
+    <<: *agent
+    container_name: bloodpoint-agent-1
+    environment:
+      <<: *agent-env
+      AGENT_KEY: ${AGENT1_TOKEN}
+      STEAM_USERNAME: ${AGENT1_STEAM_USERNAME:-}
+      STEAM_PASSWORD: ${AGENT1_STEAM_PASSWORD:-}
+      STEAM_SHARED_SECRET: ${AGENT1_STEAM_SHARED_SECRET:-}
+    volumes:
+      - agent-1-data:/app/data
+
+  # agent-2:
+  #   <<: *agent
+  #   container_name: bloodpoint-agent-2
+  #   environment:
+  #     <<: *agent-env
+  #     AGENT_KEY: ${AGENT2_TOKEN}
+  #     STEAM_USERNAME: ${AGENT2_STEAM_USERNAME:-}
+  #     STEAM_PASSWORD: ${AGENT2_STEAM_PASSWORD:-}
+  #     STEAM_SHARED_SECRET: ${AGENT2_STEAM_SHARED_SECRET:-}
+  #   volumes:
+  #     - agent-2-data:/app/data
+
+volumes:
+  hub-data:
+  agent-1-data:
+  # agent-2-data:

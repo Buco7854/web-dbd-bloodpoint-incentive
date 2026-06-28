@@ -1,0 +1,13 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "jsx": "react-jsx",
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "types": ["vite/client"],
+    "useDefineForClassFields": true
+  },
+  "include": ["src/web/**/*", "src/shared/**/*"],
+  "exclude": ["src/**/*.test.ts"]
+}

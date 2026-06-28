@@ -1,0 +1,52 @@
+# Point HUB_CONFIG at a copy of this file to define the whole hub here. A matching
+# env var overrides the value below; reference env as ${VAR} and keep secrets there.
+
+port: 3000
+contactEmail: ${CONTACT_EMAIL:-}
+trustedProxies: "false" # IP/CIDR list, true/false, or hop count
+pageSize: 20
+staleAfterSeconds: 900
+dbPath: ./data/bloodpoint.db
+dataRetentionDays: 31
+# forecastWindowDays: 84
+contributeEnabled: false
+# agentSetupUrl: https://github.com/Buco7854/bloodpoint-incentives#running-an-agent
+# discordUrl: ${DISCORD_URL:-}
+# matrixUrl: ${MATRIX_URL:-}
+
+# Admin UI + optional public gate. Omit the block to configure auth via env only.
+auth:
+  sessionSecret: ${SESSION_SECRET:-}
+  origin: ${ORIGIN:-} # required for passkeys
+  # rpId: incentives.example.com # passkey domain; defaults to origin's host
+  # rpName: Bloodpoint Incentives # label shown in the passkey prompt
+  # cookieSecure: true
+  # sessionTtlHours: 168
+  requireAuth: false # require login to view the whole site
+  # bootstrap: # seed the first admin without /setup
+  #   username: admin
+  #   password: ${ADMIN_BOOTSTRAP_PASSWORD}
+  #   email: admin@example.com
+  #   name: Admin
+
+# Default cadence. A number of seconds or a %refreshTime% expression (DBD's live
+# refresh cadence learned from reports).
+poll:
+  min: "%refreshTime%"
+  max: "%refreshTime% * 1.33"
+
+# Agents to register on boot, upserted by stable `id` (re-deploys never duplicate).
+# Optional — agents can also be added in the admin UI. Keep tokens in env.
+provision:
+  - id: eu-1
+    token: ${AGENT_EU_1_TOKEN}
+    region: eu-central-1
+    provider: steam
+  - id: eu-2
+    token: ${AGENT_EU_2_TOKEN}
+    region: eu-central-1
+    provider: steam
+  - id: us-1
+    token: ${AGENT_US_1_TOKEN}
+    region: us-east-1
+    provider: steam

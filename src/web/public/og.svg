@@ -1,0 +1,52 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 630" width="1200" height="630">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#141019" />
+      <stop offset="55%" stop-color="#0c0b0f" />
+      <stop offset="100%" stop-color="#09080c" />
+    </linearGradient>
+    <radialGradient id="glow" cx="50%" cy="34%" r="45%">
+      <stop offset="0%" stop-color="#c1121f" stop-opacity="0.42" />
+      <stop offset="100%" stop-color="#c1121f" stop-opacity="0" />
+    </radialGradient>
+    <radialGradient id="bp-core" cx="42%" cy="30%" r="78%">
+      <stop offset="0%" stop-color="#ff9a9a" />
+      <stop offset="36%" stop-color="#ec2230" />
+      <stop offset="76%" stop-color="#a30f17" />
+      <stop offset="100%" stop-color="#560a0e" />
+    </radialGradient>
+    <linearGradient id="bp-rim" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#ff7a7a" />
+      <stop offset="100%" stop-color="#360608" />
+    </linearGradient>
+    <clipPath id="barClip">
+      <rect x="480" y="502" width="240" height="8" rx="4" />
+    </clipPath>
+  </defs>
+
+  <rect width="1200" height="630" fill="url(#bg)" />
+  <rect width="1200" height="630" fill="url(#glow)" />
+
+  <g transform="translate(600 215) scale(8.4) translate(-16 -15.55)">
+    <path d="M16 2.2C18.9 7 25.5 13.6 25.5 19.4A9.5 9.5 0 1 1 6.5 19.4C6.5 13.6 13.1 7 16 2.2Z" fill="url(#bp-rim)" />
+    <path d="M16 4.2C18.5 8.4 23.7 14.1 23.7 19.4A7.7 7.7 0 1 1 8.3 19.4C8.3 14.1 13.5 8.4 16 4.2Z" fill="url(#bp-core)" />
+    <ellipse cx="12.4" cy="14" rx="1.9" ry="3" fill="#ffffff" opacity="0.4" transform="rotate(-26 12.4 14)" />
+  </g>
+
+  <text x="600" y="408" text-anchor="middle" font-family="'Segoe UI', system-ui, -apple-system, Roboto, Helvetica, Arial, sans-serif" font-size="72" font-weight="700" letter-spacing="1" fill="#f5f1ea">Bloodpoint Incentives</text>
+
+  <text x="600" y="458" text-anchor="middle" font-family="'Segoe UI', system-ui, -apple-system, Roboto, Helvetica, Arial, sans-serif" font-size="28" font-weight="400" fill="#b8b0a3">Live Bloodpoint incentives for Dead by Daylight, per region.</text>
+
+  <g clip-path="url(#barClip)">
+    <rect x="480" y="502" width="120" height="8" fill="#36c2a6" />
+    <rect x="600" y="502" width="120" height="8" fill="#e01e2b" />
+  </g>
+
+  <text x="600" y="556" text-anchor="middle" font-family="'Segoe UI', system-ui, -apple-system, Roboto, Helvetica, Arial, sans-serif" font-size="20" font-weight="500" letter-spacing="4" fill="#6b6459">UNOFFICIAL FAN PROJECT</text>
+
+  <g transform="translate(1083 566) scale(2.4)" fill="none" stroke="#cfc7b8" stroke-opacity="0.55" stroke-linecap="round">
+    <path d="M2 14 10 2" stroke-width="2.4" />
+    <path d="M11 14 19 2" stroke-width="2" />
+    <path d="M20 14 27 3" stroke-width="1.6" />
+  </g>
+</svg>

@@ -1,0 +1,19 @@
+/* The hero logo is a small (32x32) favicon SVG, so give it an explicit size to
+   grow into. VitePress already absolutely-centers .image-src in its container,
+   which keeps it centered on desktop and clear of the text on mobile. */
+.VPHero .image-src {
+  width: 192px;
+  height: 192px;
+}
+@media (min-width: 640px) {
+  .VPHero .image-src {
+    width: 256px;
+    height: 256px;
+  }
+}
+@media (min-width: 960px) {
+  .VPHero .image-src {
+    width: 288px;
+    height: 288px;
+  }
+}

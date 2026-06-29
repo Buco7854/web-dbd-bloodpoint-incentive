@@ -108,13 +108,15 @@ func (s *Server) registerMfaRoutes() {
 			if !ok {
 				return nil, huma.Error400BadRequest("no pending enrollment; start again")
 			}
-			if !auth.VerifyTotp(secret, in.Body.Code, time.Now(), 1) {
+			step, ok := auth.VerifyTotpStep(secret, in.Body.Code, time.Now(), 1)
+			if !ok {
 				return nil, huma.Error400BadRequest("incorrect code")
 			}
 			s.deps.Auth.Throttle.Delete("mfa|" + itoa(p.user.ID))
 			if err := repo.SetTotpSecret(p.user.ID, &secret); err != nil {
 				return nil, err
 			}
+			_ = repo.SetTotpLastStep(p.user.ID, step)
 			_ = s.deps.Auth.UpgradeToMfa(p.session.ID)
 			_ = repo.TouchLogin(p.user.ID)
 			return &struct{}{}, nil
@@ -134,9 +136,18 @@ func (s *Server) registerMfaRoutes() {
 			if s.throttle("mfa|" + itoa(p.user.ID)) {
 				return nil, huma.Error429TooManyRequests("too many attempts; try again later")
 			}
-			if p.user.TotpSecret == nil || !auth.VerifyTotp(*p.user.TotpSecret, in.Body.Code, time.Now(), 1) {
+			if p.user.TotpSecret == nil {
 				return nil, huma.Error401Unauthorized("incorrect code")
 			}
+			step, ok := auth.VerifyTotpStep(*p.user.TotpSecret, in.Body.Code, time.Now(), 1)
+			if !ok {
+				return nil, huma.Error401Unauthorized("incorrect code")
+			}
+			// Reject replay: each time-step may be accepted at most once.
+			if last, _ := repo.GetTotpLastStep(p.user.ID); step <= last {
+				return nil, huma.Error401Unauthorized("code already used; wait for the next code")
+			}
+			_ = repo.SetTotpLastStep(p.user.ID, step)
 			s.deps.Auth.Throttle.Delete("mfa|" + itoa(p.user.ID))
 			_ = s.deps.Auth.UpgradeToMfa(p.session.ID)
 			_ = repo.TouchLogin(p.user.ID)

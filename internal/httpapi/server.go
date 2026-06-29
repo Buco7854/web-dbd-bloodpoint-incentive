@@ -36,13 +36,19 @@ type Deps struct {
 	PublicDir    string
 }
 
+// maxConcurrentStreams caps how many SSE connections the hub will hold open at
+// once. Each stream pins a goroutine + tickers for the life of the connection, so
+// an unbounded count is a cheap resource-exhaustion lever for an anonymous client.
+const maxConcurrentStreams = 1024
+
 // Server holds the router and the Huma API instance.
 type Server struct {
-	Router  chi.Router
-	API     huma.API
-	deps    Deps
-	start   time.Time
-	reports reportLimiter
+	Router      chi.Router
+	API         huma.API
+	deps        Deps
+	start       time.Time
+	reports     reportLimiter
+	streamSlots chan struct{}
 }
 
 // New builds the router and Huma API and registers every operation.
@@ -54,6 +60,9 @@ func New(deps Deps) *Server {
 		deps.Presence = presence.New()
 	}
 	router := chi.NewMux()
+	router.Use(limitBodyMiddleware)
+	hsts := deps.Config != nil && deps.Config.Auth.CookieSecure
+	router.Use(securityHeadersMiddleware(hsts))
 	if deps.Config != nil && len(deps.Config.CORSAllowedOrigins) > 0 {
 		router.Use(corsMiddleware(deps.Config.CORSAllowedOrigins))
 	}
@@ -75,7 +84,7 @@ func New(deps Deps) *Server {
 		api.OpenAPI().Servers = []*huma.Server{{URL: deps.Config.Auth.Origin}}
 	}
 
-	s := &Server{Router: router, API: api, deps: deps, start: time.Now()}
+	s := &Server{Router: router, API: api, deps: deps, start: time.Now(), streamSlots: make(chan struct{}, maxConcurrentStreams)}
 	if deps.Auth != nil {
 		api.UseMiddleware(s.attach)
 	}

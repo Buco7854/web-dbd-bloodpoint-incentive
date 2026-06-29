@@ -18,9 +18,15 @@ const (
 	transientTTL     = 10 * time.Minute
 	loginMaxAttempts = 10
 	loginWindow      = 15 * time.Minute
+	// ipMaxAttempts is the per-source-IP failure budget for login. It is higher than
+	// the per-username budget because many users can legitimately share one IP (NAT,
+	// office, the configured trusted proxy), but still caps credential-stuffing that
+	// rotates usernames (which the per-username counter alone never throttles).
+	ipMaxAttempts = 50
 )
 
-// throttle returns true when the keyed action has exceeded its window budget.
+// throttle returns true when the keyed action has exceeded its window budget,
+// incrementing the counter as a side effect. Used by the MFA step-up routes.
 func (s *Server) throttle(key string) bool {
 	n, _ := s.deps.Auth.Throttle.Get(key)
 	if n >= loginMaxAttempts {
@@ -28,6 +34,18 @@ func (s *Server) throttle(key string) bool {
 	}
 	s.deps.Auth.Throttle.Set(key, n+1, loginWindow)
 	return false
+}
+
+// overBudget reports whether key has reached max, without incrementing.
+func (s *Server) overBudget(key string, max int) bool {
+	n, _ := s.deps.Auth.Throttle.Get(key)
+	return n >= max
+}
+
+// recordFailure bumps key's failure counter within the login window.
+func (s *Server) recordFailure(key string) {
+	n, _ := s.deps.Auth.Throttle.Get(key)
+	s.deps.Auth.Throttle.Set(key, n+1, loginWindow)
 }
 
 func (s *Server) waUser(u db.UserRow) auth.WAUser {
@@ -141,7 +159,7 @@ func (s *Server) registerAuthRoutes() {
 		})
 
 	// POST login.
-	huma.Register(api, withTags(huma.Operation{OperationID: "auth-login", Method: "POST", Path: "/api/v1/auth/login", Summary: "Log in with username and password"}),
+	huma.Register(api, withTags(huma.Operation{OperationID: "auth-login", Method: "POST", Path: "/api/v1/auth/login", Summary: "Log in with username and password", Middlewares: huma.Middlewares{s.mwClientIP}}),
 		func(ctx context.Context, in *struct {
 			Device http.Cookie `cookie:"bp_device"`
 			Body   struct {
@@ -152,16 +170,20 @@ func (s *Server) registerAuthRoutes() {
 			SetCookie http.Cookie `header:"Set-Cookie"`
 			Body      nextBody
 		}, error) {
-			if s.throttle("login|" + in.Body.Username) {
+			ipKey := "login-ip|" + clientIPOf(ctx)
+			userKey := "login|" + in.Body.Username
+			if s.overBudget(ipKey, ipMaxAttempts) || s.overBudget(userKey, loginMaxAttempts) {
 				return nil, huma.Error429TooManyRequests("too many attempts; try again later")
 			}
 			user, found, _ := repo.GetUserByUsername(in.Body.Username)
 			ok := found && user.Enabled && auth.VerifyPassword(in.Body.Password, user.PasswordHash)
 			if !ok {
 				auth.VerifyPassword(in.Body.Password, s.dummyHash()) // equalize timing
+				s.recordFailure(ipKey)
+				s.recordFailure(userKey)
 				return nil, huma.Error401Unauthorized("invalid username or password")
 			}
-			s.deps.Auth.Throttle.Delete("login|" + in.Body.Username)
+			s.deps.Auth.Throttle.Delete(userKey)
 			ln := auth.DecideLoginNext(repo, user)
 			// A remembered device satisfies the MFA step-up (but never enrollment).
 			if ln.Next == "mfa" && s.deps.Auth.DeviceTrusted(in.Device.Value, user.ID) {

@@ -125,7 +125,19 @@ func run(args []string) error {
 
 	addr := fmt.Sprintf(":%d", cfg.Port)
 	logger.Info("hub listening", "addr", addr, "docs", "/docs")
-	return http.ListenAndServe(addr, server.Router)
+	srv := &http.Server{
+		Addr:    addr,
+		Handler: server.Router,
+		// Bound how long a client may take to send a request so a slow/idle peer
+		// can't pin a connection open (slowloris). WriteTimeout is intentionally
+		// left unset: the SSE stream is a long-lived response and a write deadline
+		// would sever it. ReadHeaderTimeout/ReadTimeout still cap the request side.
+		ReadHeaderTimeout: 10 * time.Second,
+		ReadTimeout:       30 * time.Second,
+		IdleTimeout:       120 * time.Second,
+		MaxHeaderBytes:    1 << 20,
+	}
+	return srv.ListenAndServe()
 }
 
 // pruneLoop deletes readings past the retention window, hourly.

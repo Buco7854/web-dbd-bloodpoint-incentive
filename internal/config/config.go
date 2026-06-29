@@ -216,6 +216,18 @@ func resolveAuth() (AuthConfig, error) {
 	cookieSecure := boolOr("COOKIE_SECURE", strings.HasPrefix(origin, "https://"))
 	ttlHours := clamp(intOr("SESSION_TTL_HOURS", 168), 1, 0)
 
+	// A short or placeholder SESSION_SECRET is trivially brute-forceable and would let
+	// an attacker forge session cookies, so reject it outright rather than booting
+	// insecurely. (An unset secret is fine: main.go generates a strong ephemeral one.)
+	if secret, ok := readString("SESSION_SECRET"); ok {
+		if secret == "change-me-to-a-long-random-string" {
+			return AuthConfig{}, configErrorf("SESSION_SECRET is still the example placeholder; set it to a long random string (e.g. `openssl rand -base64 32`)")
+		}
+		if len(secret) < 16 {
+			return AuthConfig{}, configErrorf("SESSION_SECRET is too short (%d chars); use at least 16 (e.g. `openssl rand -base64 32`)", len(secret))
+		}
+	}
+
 	var bootstrap *AdminBootstrap
 	user, hasUser := readString("ADMIN_BOOTSTRAP_USER")
 	pass, hasPass := readString("ADMIN_BOOTSTRAP_PASSWORD")

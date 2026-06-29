@@ -24,11 +24,14 @@ func Open(path string) (*sql.DB, error) {
 	if err != nil {
 		return nil, err
 	}
-	// A single in-memory database lives only as long as its one connection, so pin
-	// the pool to one connection for the :memory: case (tests).
-	if path == ":memory:" {
-		conn.SetMaxOpenConns(1)
-	}
+	// SQLite allows only one writer at a time. With Go's default (unbounded) pool,
+	// concurrent writers from different connections race for the write lock and, once
+	// busy_timeout elapses, fail with SQLITE_BUSY — and Store.Ingest only logs that,
+	// silently dropping the reading. Pinning the pool to a single connection serializes
+	// all access so writes never collide; at this app's scale the lost read concurrency
+	// is negligible (and WAL still lets the one connection read during a write). The
+	// :memory: case must also be single-connection or the database vanishes between calls.
+	conn.SetMaxOpenConns(1)
 	if err := conn.Ping(); err != nil {
 		conn.Close()
 		return nil, err

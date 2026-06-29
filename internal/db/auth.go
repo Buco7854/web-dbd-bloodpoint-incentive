@@ -186,6 +186,23 @@ func (r *AuthRepo) SetTotpSecret(id int64, secret *string) error {
 	return err
 }
 
+// GetTotpLastStep returns the highest TOTP time-step counter already accepted for
+// the user (0 if none). Used to reject replayed codes.
+func (r *AuthRepo) GetTotpLastStep(id int64) (int64, error) {
+	var step int64
+	err := r.db.QueryRow(`SELECT totp_last_step FROM users WHERE id = ?`, id).Scan(&step)
+	if err == sql.ErrNoRows {
+		return 0, nil
+	}
+	return step, err
+}
+
+// SetTotpLastStep records the most recent accepted TOTP time-step counter.
+func (r *AuthRepo) SetTotpLastStep(id, step int64) error {
+	_, err := r.db.Exec(`UPDATE users SET totp_last_step = ? WHERE id = ?`, step, id)
+	return err
+}
+
 func (r *AuthRepo) SetRole(id int64, role UserRole) error {
 	_, err := r.db.Exec(`UPDATE users SET role = ?, updated_at = ? WHERE id = ?`, string(role), r.now(), id)
 	return err
@@ -205,27 +222,49 @@ func (r *AuthRepo) TouchLogin(id int64) error {
 	return err
 }
 
+// DeleteUser removes a user and all of their auth records. The deletes run in one
+// transaction so a mid-way failure can't leave orphaned sessions/keys/credentials
+// behind a still-present user (or vice versa).
 func (r *AuthRepo) DeleteUser(id int64) error {
-	if _, err := r.db.Exec(`DELETE FROM sessions WHERE user_id = ?`, id); err != nil {
-		return err
-	}
-	if _, err := r.db.Exec(`DELETE FROM api_keys WHERE user_id = ?`, id); err != nil {
-		return err
-	}
-	if _, err := r.db.Exec(`DELETE FROM webauthn_credentials WHERE user_id = ?`, id); err != nil {
-		return err
-	}
-	_, err := r.db.Exec(`DELETE FROM users WHERE id = ?`, id)
-	return err
+	return r.inTx(func(tx *sql.Tx) error {
+		for _, q := range []string{
+			`DELETE FROM sessions WHERE user_id = ?`,
+			`DELETE FROM api_keys WHERE user_id = ?`,
+			`DELETE FROM webauthn_credentials WHERE user_id = ?`,
+			`DELETE FROM trusted_devices WHERE user_id = ?`,
+			`DELETE FROM users WHERE id = ?`,
+		} {
+			if _, err := tx.Exec(q, id); err != nil {
+				return err
+			}
+		}
+		return nil
+	})
 }
 
-// ResetMfa clears a user's TOTP and all passkeys.
+// ResetMfa clears a user's TOTP and all passkeys, transactionally so the account
+// can't be left half-reset.
 func (r *AuthRepo) ResetMfa(userID int64) error {
-	if err := r.SetTotpSecret(userID, nil); err != nil {
+	return r.inTx(func(tx *sql.Tx) error {
+		if _, err := tx.Exec(`UPDATE users SET totp_secret = NULL, totp_last_step = 0, updated_at = ? WHERE id = ?`, r.now(), userID); err != nil {
+			return err
+		}
+		_, err := tx.Exec(`DELETE FROM webauthn_credentials WHERE user_id = ?`, userID)
+		return err
+	})
+}
+
+// inTx runs fn inside a transaction, rolling back on error.
+func (r *AuthRepo) inTx(fn func(*sql.Tx) error) error {
+	tx, err := r.db.Begin()
+	if err != nil {
 		return err
 	}
-	_, err := r.db.Exec(`DELETE FROM webauthn_credentials WHERE user_id = ?`, userID)
-	return err
+	if err := fn(tx); err != nil {
+		_ = tx.Rollback()
+		return err
+	}
+	return tx.Commit()
 }
 
 // --- credentials ---

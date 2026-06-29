@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { type BodyPlatform, DEFAULT_PLATFORM, PLATFORMS } from '@shared/platforms';
 import type { CoverageEntry, IncentivesPayload } from '@shared/types';
 import { fetchCoverage } from '../api';
+import { safeExternalHref } from '../lib/links';
 import { useI18n } from '../i18n';
 import { Flag } from './Flag';
 import { PlatformSelector } from './PlatformSelector';
@@ -25,9 +26,9 @@ interface Props {
 export function RegisterPage({ data, onBack }: Props) {
   const { t } = useI18n();
   const contactEmail = data?.contactEmail ?? null;
-  const agentSetupUrl = data?.agentSetupUrl ?? null;
-  const discordUrl = data?.discordUrl ?? null;
-  const matrixUrl = data?.matrixUrl ?? null;
+  const agentSetupUrl = safeExternalHref(data?.agentSetupUrl) ?? null;
+  const discordUrl = safeExternalHref(data?.discordUrl) ?? null;
+  const matrixUrl = safeExternalHref(data?.matrixUrl) ?? null;
 
   // Coverage is browsable for every platform here (not just ones that already have
   // agents), independent of the dashboard's selected platform.

@@ -61,5 +61,6 @@ func (s *Server) serveShell(w http.ResponseWriter, r *http.Request, index string
 	}
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	w.Header().Set("Cache-Control", "no-cache")
+	w.Header().Set("Content-Security-Policy", shellCSP)
 	_, _ = w.Write([]byte(s.renderShell(string(raw), r.URL.Path, doIndex)))
 }

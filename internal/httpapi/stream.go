@@ -41,6 +41,15 @@ func (s *Server) registerStream() {
 		if !domain.IsKnownPlatform(in.Platform) {
 			return
 		}
+		// Bound concurrent streams: take a slot or refuse. Each open stream holds a
+		// goroutine + tickers, so an unbounded count is a resource-exhaustion lever.
+		select {
+		case s.streamSlots <- struct{}{}:
+			defer func() { <-s.streamSlots }()
+		default:
+			_ = send(sse.Message{Data: pingPayload{T: time.Now().UnixMilli()}})
+			return
+		}
 		platform := domain.Platform(in.Platform)
 
 		visitorID := clientIPOf(ctx)

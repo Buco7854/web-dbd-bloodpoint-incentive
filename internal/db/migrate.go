@@ -96,6 +96,12 @@ var migrations = []string{
 	);
 	CREATE INDEX IF NOT EXISTS trusted_devices_by_user ON trusted_devices (user_id);
 	`,
+	// 3: TOTP replay protection (highest accepted time-step per user) and an index
+	// on measured_at so the hourly retention prune doesn't full-scan the readings table.
+	`
+	ALTER TABLE users ADD COLUMN totp_last_step INTEGER NOT NULL DEFAULT 0;
+	CREATE INDEX IF NOT EXISTS readings_measured_at ON readings (measured_at);
+	`,
 }
 
 // migrate applies any pending migrations, tracked by PRAGMA user_version.

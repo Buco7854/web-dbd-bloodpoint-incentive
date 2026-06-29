@@ -81,8 +81,17 @@ var sixDigits = regexp.MustCompile(`^\d{6}$`)
 
 // VerifyTotp verifies a 6-digit token against a secret, allowing ±window steps for skew.
 func VerifyTotp(secretBase32, token string, at time.Time, window int) bool {
+	_, ok := VerifyTotpStep(secretBase32, token, at, window)
+	return ok
+}
+
+// VerifyTotpStep is like VerifyTotp but also returns the time-step counter the code
+// matched, so callers can persist it and reject replays (a code valid within the
+// ±window envelope can otherwise be reused for up to ~90s). The caller should reject
+// any matched step that is not strictly greater than the last accepted step.
+func VerifyTotpStep(secretBase32, token string, at time.Time, window int) (int64, bool) {
 	if !sixDigits.MatchString(token) {
-		return false
+		return 0, false
 	}
 	counter := at.Unix() / totpStep
 	for i := -window; i <= window; i++ {
@@ -92,10 +101,10 @@ func VerifyTotp(secretBase32, token string, at time.Time, window int) bool {
 		}
 		candidate := hotp(secretBase32, uint64(c))
 		if subtle.ConstantTimeCompare([]byte(candidate), []byte(token)) == 1 {
-			return true
+			return c, true
 		}
 	}
-	return false
+	return 0, false
 }
 
 // TotpAuthURI builds the otpauth:// URI an authenticator app scans.
